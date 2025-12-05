@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, MapPin, Phone, Mail, Facebook, Instagram, Search, Camera, CheckCircle, XCircle } from 'lucide-react';
+import { Phone, Mail, Facebook, Instagram, Search, Camera, CheckCircle } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
@@ -14,9 +14,11 @@ import { Badge } from '../ui/badge';
 import { toast } from 'sonner';
 import {
   saveBooking,
-  getBookedTimeSlotsForDate,
+  // getBookedTimeSlotsForDate,    // remove or leave for other usages
+  getBookedTimeSlotsForDateByStatus,
   findBooking,
-  getBookedDates,
+  // getBookedDates,
+  getBookedDatesByStatus,
   isDateFullyBooked,
   type Booking
 } from '../services/bookingService';
@@ -52,11 +54,30 @@ export default function BookingForm() {
 
   const [availableTimeSlots, setAvailableTimeSlots] = useState<string[]>([]);
   const [bookedDates, setBookedDates] = useState<Set<string>>(new Set());
+  const [fullyBookedDates, setFullyBookedDates] = useState<Set<string>>(new Set());
   const [searchInput, setSearchInput] = useState('');
   const [searchResult, setSearchResult] = useState<Booking | null>(null);
   const [showSearchDialog, setShowSearchDialog] = useState(false);
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [confirmedBooking, setConfirmedBooking] = useState<Booking | null>(null);
+
+  // --- Date helpers (use local date components to avoid timezone shifts) ---
+  const normalizeDateToLocalMidnight = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+
+  const toLocalYYYYMMDD = (d: Date) => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
+
+  const parseYYYYMMDDToLocalDate = (v?: string | Date) => {
+    if (!v) return undefined;
+    if (v instanceof Date) return normalizeDateToLocalMidnight(v);
+    const [y, m, day] = v.split('-').map(Number);
+    return new Date(y, m - 1, day);
+  };
+  // --- end helpers ---
 
   const packages = [
     {
@@ -89,24 +110,34 @@ export default function BookingForm() {
     '9:00 AM', '10:00 AM', '11:00 AM', '1:00 PM', '2:00 PM', '3:00 PM', '4:00 PM', '5:00 PM'
   ];
 
-  // Load booked dates on component mount
+  // Load booked dates on component mount (pending only)
   useEffect(() => {
-    const loadBookedDates = async () => {
-      const dates = await getBookedDates();
+    const loadPendingBookedDates = async () => {
+      const dates: Set<string> = await getBookedDatesByStatus(['pending']);
       setBookedDates(dates);
+
+      // compute fully booked dates separately using pending bookings only
+      const fully = new Set<string>();
+      for (const d of Array.from(dates) as string[]) {
+        const [y, m, day] = d.split('-').map(Number);
+        const localDate = new Date(y, m - 1, day);
+        const bookedSlots = await getBookedTimeSlotsForDateByStatus(localDate, ['pending']);
+        if (bookedSlots.length >= timeSlots.length) fully.add(d);
+      }
+      setFullyBookedDates(fully);
     };
-    loadBookedDates();
+    loadPendingBookedDates();
   }, []);
 
-  // Update available time slots when date changes
+  // Update available time slots when date changes (consider pending bookings only)
   useEffect(() => {
     const updateTimeSlots = async () => {
       if (formData.selectedDate) {
-        const bookedSlots = await getBookedTimeSlotsForDate(formData.selectedDate);
-        const available = timeSlots.filter(slot => !bookedSlots.includes(slot));
+        const normalized = normalizeDateToLocalMidnight(formData.selectedDate);
+        const bookedSlots = await getBookedTimeSlotsForDateByStatus(normalized, ['pending']);
+        const available = timeSlots.filter((slot: string) => !bookedSlots.includes(slot));
         setAvailableTimeSlots(available);
-        
-        // Reset selected time if it's now booked
+
         if (formData.selectedTime && bookedSlots.includes(formData.selectedTime)) {
           setFormData(prev => ({ ...prev, selectedTime: '' }));
           toast.error('Selected time slot is no longer available. Please choose another time.');
@@ -124,36 +155,42 @@ export default function BookingForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Validation
     if (!formData.selectedDate) {
       toast.error('Please select a date for your booking');
       return;
     }
-    
+
     if (!formData.selectedTime) {
       toast.error('Please select a time slot');
       return;
     }
-    
+
     if (!formData.selectedPackage) {
       toast.error('Please select a package');
       return;
     }
-    
+
     if (!formData.paymentMethod) {
       toast.error('Please select a payment method');
       return;
     }
 
     try {
+      // Normalize before checking availability and saving
+      const normalizedDate = normalizeDateToLocalMidnight(formData.selectedDate!);
+
       // Check if time slot is still available (double-check)
-      const bookedSlots = await getBookedTimeSlotsForDate(formData.selectedDate);
+      const bookedSlots = await getBookedTimeSlotsForDateByStatus(normalizedDate, ['pending']);
       if (bookedSlots.includes(formData.selectedTime)) {
         toast.error('This time slot has just been booked. Please select another time.');
         setFormData(prev => ({ ...prev, selectedTime: '' }));
         return;
       }
+
+      // Convert selectedDate to local YYYY-MM-DD string to prevent timezone shift
+      const localDateString = toLocalYYYYMMDD(normalizedDate);
 
       // Save booking
       const booking = await saveBooking({
@@ -164,21 +201,31 @@ export default function BookingForm() {
         eventLocation: formData.eventLocation,
         additionalNotes: formData.additionalNotes,
         selectedPackage: formData.selectedPackage,
-        selectedDate: formData.selectedDate.toISOString().split('T')[0],
+        selectedDate: localDateString,
         selectedTime: formData.selectedTime,
         paymentMethod: formData.paymentMethod
       });
 
       // Update booked dates
-      const dates = await getBookedDates();
+      const dates: Set<string> = await getBookedDatesByStatus(['pending']);
       setBookedDates(dates);
+
+      // Update fully booked dates (pending only)
+      const fully = new Set<string>();
+      for (const d of Array.from(dates) as string[]) {
+        const [y, m, day] = d.split('-').map(Number);
+        const localDate = new Date(y, m - 1, day);
+        const bookedSlots = await getBookedTimeSlotsForDateByStatus(localDate, ['pending']);
+        if (bookedSlots.length >= timeSlots.length) fully.add(d);
+      }
+      setFullyBookedDates(fully);
 
       // Show confirmation
       setConfirmedBooking(booking);
       setShowConfirmation(true);
-      
+
       toast.success('Booking submitted successfully! Note: This is a demo - data is not persisted.');
-      
+
       // Reset form
       handleReset();
     } catch (error) {
@@ -310,7 +357,7 @@ export default function BookingForm() {
               </div>
               <div>
                 <Label htmlFor="eventType" className="text-[#895737]">Event Type</Label>
-                <Select value={formData.eventType} onValueChange={(value) => handleInputChange('eventType', value)}>
+                <Select value={formData.eventType} onValueChange={(value: string) => handleInputChange('eventType', value)}>
                   <SelectTrigger className="mt-1 border-[#F3E9DC] focus:border-[#C08552]">
                     <SelectValue placeholder="Select event type" />
                   </SelectTrigger>
@@ -402,20 +449,21 @@ export default function BookingForm() {
               <CalendarComponent
                 mode="single"
                 selected={formData.selectedDate}
-                onSelect={(date) => handleInputChange('selectedDate', date)}
+                onSelect={(date: Date) => handleInputChange('selectedDate', normalizeDateToLocalMidnight(date))}
                 className="rounded-md border border-[#F3E9DC]"
-                disabled={(date) => {
+                disabled={(date: Date) => {
                   // Disable past dates
                   const today = new Date();
                   today.setHours(0, 0, 0, 0);
                   if (date < today) return true;
-                  
-                  // Disable fully booked dates (async check will be handled separately)
-                  return false; // Will be updated dynamically
+
+                  // Disable fully booked dates
+                  const dateString = toLocalYYYYMMDD(normalizeDateToLocalMidnight(date));
+                  return fullyBookedDates.has(dateString);
                 }}
                 modifiers={{
-                  booked: (date) => {
-                    const dateString = date.toISOString().split('T')[0];
+                  booked: (date: Date) => {
+                    const dateString = toLocalYYYYMMDD(normalizeDateToLocalMidnight(date));
                     return bookedDates.has(dateString);
                   }
                 }}
@@ -442,7 +490,7 @@ export default function BookingForm() {
               )}
               <RadioGroup
                 value={formData.selectedTime}
-                onValueChange={(value) => handleInputChange('selectedTime', value)}
+                onValueChange={(value: string) => handleInputChange('selectedTime', value)}
                 className="grid grid-cols-2 gap-3"
                 disabled={!formData.selectedDate}
               >
@@ -483,7 +531,7 @@ export default function BookingForm() {
             <h3 className="text-xl font-semibold text-[#5E3023] mb-6">Payment Methods</h3>
             <RadioGroup
               value={formData.paymentMethod}
-              onValueChange={(value) => handleInputChange('paymentMethod', value)}
+              onValueChange={(value: string) => handleInputChange('paymentMethod', value)}
               className="space-y-4"
             >
               <div className="flex items-start space-x-3 p-4 bg-white rounded-lg border border-[#F3E9DC]">
@@ -616,7 +664,7 @@ export default function BookingForm() {
                 <div className="flex justify-between">
                   <span className="text-[#895737]">Date:</span>
                   <span className="text-[#5E3023] font-medium">
-                    {new Date(confirmedBooking.selectedDate).toLocaleDateString('en-US', {
+                    {parseYYYYMMDDToLocalDate(confirmedBooking.selectedDate)!.toLocaleDateString('en-US', {
                       weekday: 'long',
                       year: 'numeric',
                       month: 'long',
@@ -698,7 +746,7 @@ export default function BookingForm() {
                 <div className="flex justify-between">
                   <span className="text-[#895737]">Date:</span>
                   <span className="text-[#5E3023] font-medium">
-                    {new Date(searchResult.selectedDate).toLocaleDateString('en-US', {
+                    {parseYYYYMMDDToLocalDate(searchResult.selectedDate)!.toLocaleDateString('en-US', {
                       weekday: 'long',
                       year: 'numeric',
                       month: 'long',
@@ -727,7 +775,7 @@ export default function BookingForm() {
                 <div className="flex justify-between">
                   <span className="text-[#895737]">Status:</span>
                   <Badge className={
-                    searchResult.status === 'confirmed' 
+                    searchResult.status === 'completed' 
                       ? 'bg-green-100 text-green-800 hover:bg-green-100'
                       : searchResult.status === 'cancelled'
                       ? 'bg-red-100 text-red-800 hover:bg-red-100'
