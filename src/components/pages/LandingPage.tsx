@@ -413,7 +413,9 @@ export default function LandingPage({ onNavigateToBooking }: LandingPageProps) {
                 <Facebook className="h-6 w-6 cursor-pointer" />
               </a>
               <a 
-                href="#" 
+                href="https://www.instagram.com/lumiere_lens.cdo/ " 
+                target="_blank" 
+                rel="noopener noreferrer"
                 aria-label="Visit our Instagram page"
                 className="hover:text-[#F3E9DC] transition-colors"
               >

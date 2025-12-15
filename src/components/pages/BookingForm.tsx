@@ -608,8 +608,26 @@ export default function BookingForm() {
             <div>
               <h4 className="font-semibold mb-4">Follow Us</h4>
               <div className="flex space-x-4">
-                <Facebook className="h-6 w-6 hover:text-[#F3E9DC] cursor-pointer" />
-                <Instagram className="h-6 w-6 hover:text-[#F3E9DC] cursor-pointer" />
+                <div className="flex space-x-6 mb-4 md:mb-0">
+                              <a 
+                                href="https://www.facebook.com/profile.php?id=61573942870884" 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                aria-label="Visit our Facebook page"
+                                className="hover:text-[#F3E9DC] transition-colors"
+                              >
+                                <Facebook className="h-6 w-6 cursor-pointer" />
+                              </a>
+                              <a 
+                                href="https://www.instagram.com/lumiere_lens.cdo/ " 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                aria-label="Visit our Instagram page"
+                                className="hover:text-[#F3E9DC] transition-colors"
+                              >
+                                <Instagram className="h-6 w-6 cursor-pointer" />
+                              </a>
+                            </div>
               </div>
             </div>
           </div>
