@@ -360,6 +360,37 @@ export default function LandingPage({ onNavigateToBooking }: LandingPageProps) {
         </div>
       </section>
 
+      {/* Contact Section (Info-only, no form) */}
+      <section id="contact" className="py-20 px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto">
+          <h2 className="text-3xl font-bold text-[#5E3023] text-center mb-12">Get in Touch</h2>
+          <div className="max-w-2xl mx-auto">
+            <div>
+              <h3 className="text-xl font-semibold text-[#5E3023] mb-6">Contact Information</h3>
+              <div className="space-y-4 mb-8">
+                <div className="flex items-center space-x-3">
+                  <Phone className="h-5 w-5 text-[#C08552]" />
+                  <span className="text-gray-700">09457120419</span>
+                </div>
+                <div className="flex items-center space-x-3">
+                  <Mail className="h-5 w-5 text-[#C08552]" />
+                  <span className="text-gray-700">emmanuelvillar60@gmail.com</span>
+                </div>
+                <div className="flex items-center space-x-3">
+                  <MapPin className="h-5 w-5 text-[#C08552]" />
+                  <span className="text-gray-700">Cagayan de Oro City, Philippines</span>
+                </div>
+              </div>
+              <div>
+                <h4 className="font-semibold text-[#5E3023] mb-4">Payment Options</h4>
+                <p className="text-gray-700 mb-2">GCash: 09457120419 (Emmanuel V.)</p>
+                <p className="text-gray-700">Cash: Accepted on-site</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Footer */}
       <footer className="bg-[#5E3023] text-white py-8 px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
