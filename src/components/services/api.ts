@@ -1,4 +1,4 @@
-export const API_BASE_URL = 'http://localhost:5000/api'; // backend URL
+export const API_BASE_URL = 'https://backend-delta-eight-15.vercel.app/api'; // backend URL
 
 export interface Booking {
   id: string;
