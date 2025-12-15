@@ -224,7 +224,7 @@ export default function BookingForm() {
       setConfirmedBooking(booking);
       setShowConfirmation(true);
 
-      toast.success('Booking submitted successfully! Note: This is a demo - data is not persisted.');
+      toast.success('Booking submitted successfully!');
 
       // Reset form
       handleReset();
@@ -632,10 +632,6 @@ export default function BookingForm() {
             </DialogTitle>
             <DialogDescription className="text-center">
               Your photography session has been successfully booked.
-              <br />
-              <span className="text-xs text-gray-500 mt-2 block">
-                Note: This is a demo - booking data is not persisted. Connect a backend to enable data storage.
-              </span>
             </DialogDescription>
           </DialogHeader>
           {confirmedBooking && (
@@ -693,7 +689,6 @@ export default function BookingForm() {
               <div className="bg-blue-50 border border-blue-200 rounded p-3 text-sm text-blue-800">
                 <p className="font-medium mb-1">Next Steps:</p>
                 <ul className="list-disc list-inside space-y-1 text-xs">
-                  <li>Check your email for confirmation details</li>
                   <li>Prepare 50% downpayment via your selected payment method</li>
                   <li>We'll contact you within 24 hours to confirm</li>
                 </ul>
